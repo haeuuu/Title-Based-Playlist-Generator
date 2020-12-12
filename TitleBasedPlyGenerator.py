@@ -45,7 +45,8 @@ class Trie:
                     # 단어를 발견했으면 start를 jump시키자 => 드라이브 => 드라이브, 이브 와 같은 경우 방지
                     start = i
                 else:
-                    # 발견하지 못했다면 start를 한칸만 옮기자 => 해변가/로드/라이브 => 해변가, 라이브 와 같은 경우 방지 (jump 시켜버리면 로드트립을 찾고 실패한 후 '라'부터 탐색을 시작해서 드라이브 못찾음.)
+                    # 발견하지 못했다면 start를 한칸만 옮기자 => 해변가/로드/라이브 => 해변가, 라이브 와 같은 경우 방지
+                    # (jump 시켜버리면 로드트립을 찾고 실패한 후 '라'부터 탐색을 시작해서 드라이브 못찾음.)
                     start += 1
                 i = start
                 curr_node = self.head
@@ -121,8 +122,8 @@ class TitleBasedPlyGenerator:
 
         return list(set(res))
 
-    def top_items(self, query_list, verbose=True):
-        candidates = self.w2v_model.wv.most_similar(query_list, topn=1000)
+    def top_items(self, query_items, verbose=True):
+        candidates = self.w2v_model.wv.most_similar(query_items, topn=1000)
         songs = [int(item) for item, sim in candidates if item.isdigit()]
         tags = [item for item, sim in candidates if not item.isdigit()]
 
@@ -140,14 +141,17 @@ class TitleBasedPlyGenerator:
         return ( song_name + ' ' + artist ).tolist()
 
     def title_based_recommend(self, title, topk = 20 ,verbose=True, biggest_token=True):
-        extracted_tags = self.extract_tags(sentence = title, verbose = verbose, biggest_token = biggest_token)
-        songs, tags = self.top_items(extracted_tags, verbose)
+        extracted_items = self.extract_tags(sentence = title, verbose = verbose, biggest_token = biggest_token)
+        rec_songs, rec_tags = self.tag_based_recommend(extracted_items, topk = topk, verbose = verbose)
+        return rec_songs, extracted_tags, rec_tags
 
-        if len(songs) < 100:
-            print(f'[Warning] recommended songs : {len(songs)}')
+    def tag_based_recommend(self, tags, topk = 20 ,verbose=True):
+        rec_songs, rec_tags = self.top_items(tags, verbose)
 
-        return songs[:topk], extracted_tags, tags[:10]
+        if len(rec_songs) < topk:
+            print(f'[Warning] recommended songs : {len(rec_songs)}')
 
+        return rec_songs[:topk], rec_tags[:10]
 
 if __name__ == '__main__':
     dir = 'arena_data'
