@@ -81,8 +81,6 @@ class TitleBasedPlyGenerator:
 
     def load_song_meta(self):
         print("******* Song meta 로드 중 ********")
-        import time
-        start = time.time()
         self.song_meta = pd.read_pickle(os.path.join(self.dir,'song_meta_sub.pkl'))
 
     def extract_tags(self, sentence, verbose=True, biggest_token=True):
