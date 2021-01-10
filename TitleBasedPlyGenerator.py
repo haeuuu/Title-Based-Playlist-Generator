@@ -2,13 +2,8 @@ from itertools import combinations
 import re, os
 import pandas as pd
 import pickle
+from math import log
 from konlpy.tag import Hannanum
-
-class Node:
-    def __init__(self, value):
-        self.value = value
-        self.children = {}
-        self.is_terminal = False
 
 class Node:
     def __init__(self, value):
@@ -22,6 +17,8 @@ class Trie:
         self.head = Node(None)
 
         print("********* DB 구성중입니다 *********")
+        N = sum(vocab.count for vocab in w2v_model.wv.vocab.values())
+        self.freq = {word:log(N-vocab.count+1) - log(vocab.count+0.5) for word,vocab in w2v_model.wv.vocab.items()}
         for word in w2v_model.wv.vocab.keys():
             if word.isdigit():
                 continue
@@ -87,7 +84,7 @@ class Trie:
         tags = []
         for word in title.split():
             tags.extend(self.extract(word,biggest_token))
-        return tags
+        return [(w,self.freq[w]) for w in tags]
 
     def extract_nouns(self, title):
         nouns = hannanum.nouns(" ".join(self.resub(title)))
@@ -96,7 +93,7 @@ class Trie:
             if self.search(noun):
                 results.append(noun)
 
-        return results
+        return [(w,self.freq[w]) for w in results]
 
 class TitleBasedPlyGenerator:
     def __init__(self, dir):
