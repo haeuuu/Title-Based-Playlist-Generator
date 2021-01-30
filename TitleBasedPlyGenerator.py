@@ -1,150 +1,45 @@
 from itertools import combinations
+from collections import defaultdict
+from gensim.parsing.preprocessing import preprocess_string, strip_punctuation,remove_stopwords, stem_text,strip_multiple_whitespaces
+from extract_tags import *
+from Playlist2Vec import *
 import re, os
 import pandas as pd
 import pickle
-from konlpy.tag import Hannanum
 
-class Node:
-    def __init__(self, value):
-        self.value = value
-        self.children = {}
-        self.is_terminal = False
-
-class Node:
-    def __init__(self, value):
-        self.value = value
-        self.children = {}
-        self.is_terminal = False
-
-class Trie:
-    def __init__(self, w2v_model):
-        self.w2v_model = w2v_model
-        self.head = Node(None)
-
-        print("********* DB 구성중입니다 *********")
-        for word in w2v_model.wv.vocab.keys():
-            if word.isdigit():
-                continue
-            word = ''.join(self.resub(word))
-            if word:
-                self.insert(word)
-        print("************ 입력 완료 ************")
-
-    def resub(self, query):
-        return re.findall('\w+', query)
-
-    def insert(self, query):
-        if len(query) <= 1:
-            return
-
-        curr_node = self.head
-
-        for q in query:
-            if curr_node.children.get(q) is None:
-                curr_node.children[q] = Node(q)
-            curr_node = curr_node.children[q]
-        curr_node.is_terminal = query
-
-    def search(self, query):
-        curr_node = self.head
-
-        for q in query:
-            curr_node = curr_node.children.get(q)
-            if curr_node is None:
-                return False
-
-        if curr_node.is_terminal:
-            return True
-        return False
-
-    def extract(self, query, biggest_token = True):
-        start, end = 0,0
-        query += '*'
-        curr_node = self.head
-        prev_node = self.head
-
-        extracted_tags = []
-        while end < len(query):
-            curr_node = curr_node.children.get(query[end])
-            if curr_node is None:
-                if biggest_token and prev_node.is_terminal:
-                    extracted_tags.append(prev_node.is_terminal)
-                    start = end-1
-                    prev_node = self.head
-                start += 1
-                end = start
-                curr_node = self.head
-            else:
-                if not biggest_token and curr_node.is_terminal:
-                    extracted_tags.append(curr_node.is_terminal)
-                elif curr_node.is_terminal:
-                    prev_node = curr_node
-                end += 1
-
-        return  extracted_tags
-
-    def extract_from_title(self, title, biggest_token = True):
-        tags = []
-        for word in title.split():
-            tags.extend(self.extract(word,biggest_token))
-        return tags
-
-    def extract_nouns(self, title):
-        nouns = hannanum.nouns(" ".join(self.resub(title)))
-        results = []
-        for noun in nouns:
-            if self.search(noun):
-                results.append(noun)
-
-        return results
-
-class TitleBasedPlyGenerator:
-    def __init__(self, dir):
-        self.dir = dir
-
-    def set_default(self):
-        self.register_w2v()
-        self.build_trie()
+class TitleBasedRecommender(Playlist2Vec):
+    def __init__(self, train_path, val_path, w2v_model):
+        super().__init__(train_path, val_path)
+        self.title = {str(ply['id']):ply['plylst_title'] for ply in self.data}
+        self.register_w2v(w2v_model)
+        self.tag_extractor = TagExtractor()
+        self.tag_extractor.build_by_w2v(w2v_model)
         self.load_song_meta()
 
-    def register_w2v(self, w2v_model = None):
-        print("******* Word2Vec 로드 중 *********")
-        if w2v_model is None:
-            with open(os.path.join(self.dir, 'w2v_128.pkl'), 'rb') as f:
-                w2v_model = pickle.load(f)
-        self.w2v_model = w2v_model
-
-    def build_trie(self):
-        self.trie = Trie(self.w2v_model.wv.vocab.keys())
-
     def load_song_meta(self):
-        print("******* Song meta 로드 중 ********")
+        print("Load Song meta ...")
         self.song_meta = pd.read_pickle(os.path.join(self.dir,'song_meta_sub.pkl'))
 
-    def extract_tags(self, sentence, verbose=True, biggest_token=True):
-        sentence = "".join(re.findall('\w', sentence))
-        extracted_tags = self.trie.extract(sentence, biggest_token)
-        filtered_tags = self.filter_tags(extracted_tags, verbose)
+    def extract_tags(self, sentence, verbose = True, biggest_token = True, nouns = False, vote = False):
+        raw_title = preprocess_string(sentence, [remove_stopwords, stem_text, strip_punctuation, strip_multiple_whitespaces])
+        extracted_tags = self.tag_extractor.extract_from_title(" ".join(raw_title), biggest_token, nouns)
+        if vote:
+            extracted_tags = self.vote(extracted_tags, verbose)
+        return extracted_tags
 
-        if verbose:
-            print('> Extracted tags :', extracted_tags)
-            print("> Filtered tags :", filtered_tags)
-
-        return filtered_tags
-
-    def filter_tags(self, tags, verbose=True):
+    def vote(self, tags, verbose = True):
         if len(tags) <= 2:
             return tags
 
         pairs = []
-        for tag1, tag2 in combinations(tags, 2):
+        for tag1, tag2 in combinations(tags,2):
             sim = self.w2v_model.wv.similarity(tag1, tag2)
             if sim < 0.1:
                 continue
             pairs.append((sim, (tag1, tag2)))
 
-        M, m = max(sim for sim, _ in pairs), min(sim for sim, _ in pairs)
-        threshold = m + 0.3 * (M - m)
+        M,m = max(sim for sim, _ in pairs), min(sim for sim, _ in pairs)
+        threshold = m + 0.3*(M-m)
 
         res = []
         for sim, (tag1, tag2) in pairs:
@@ -154,8 +49,8 @@ class TitleBasedPlyGenerator:
             res.append(tag2)
 
         if verbose:
-            print('> Similarity :', [f'{tags} : {sim:.4f}' for sim, tags in pairs])
-            print(f'> Threshold : {threshold:.4f}')
+            print('> sims :',pairs)
+            print('> threshold :',threshold)
 
         return list(set(res))
 
