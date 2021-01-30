@@ -20,6 +20,52 @@ class TitleBasedRecommender(Playlist2Vec):
         print("Load Song meta ...")
         self.song_meta = pd.read_pickle(os.path.join(self.dir,'song_meta_sub.pkl'))
 
+    def build_p2v(self, mode='consistency'):
+        """
+        TitleBasedRecommend.build_p2v uses only tag information.
+
+        :param normalize_tag: if True, tag embedding will be divided sum of scores.
+        :param normalize_title: if True, title embedding will be divided sum of scores.
+        :param song_weight: float
+        :param tag_weight: float
+        """
+
+        pids = []
+        playlist_embedding = []
+
+        if mode == 'bm25':
+            self.build_bm25()
+        elif mode == 'consistency':
+            self.build_consistency()
+        else:
+            songs_score = None
+
+        for pid in tqdm(self.corpus.keys()):
+            ply_embedding = 0
+
+            if mode == 'bm25':
+                tags, tags_score = self.bm25[pid]['tags']
+            else:
+                tags = [tag for tag in self.id_to_tags[pid] + self.id_to_title[pid] if self.w2v_model.wv.vocab.get(tag)]
+
+                if mode == 'consistency':
+                    tags_score = [self.consistency[tag] for tag in tags]
+
+            ply_embedding += self.get_weighted_embedding(items=tags, scores=tags_score)
+
+            if type(ply_embedding) != int:  # 한 번이라도 update 되었다면
+                pids.append(str(pid))  # ! string !
+                playlist_embedding.append(ply_embedding)
+
+        self.p2v_model = WordEmbeddingsKeyedVectors(self.w2v_model.vector_size)
+        self.p2v_model.add(pids, playlist_embedding)
+
+        print(f'> running time : {time.time() - start:.3f}')
+        print(f'> Register (ply update) : {len(pids)} / {len(self.id_to_songs)}')
+        val_ids = set([str(p["id"]) for p in self.val])
+        print(
+            f'> Only {len(val_ids - set(pids))} of validation set ( total : {len(val_ids)} ) can not find similar playlist in train set.')
+
     def extract_tags(self, sentence, verbose = True, biggest_token = True, nouns = False, vote = False):
         raw_title = preprocess_string(sentence, [remove_stopwords, stem_text, strip_punctuation, strip_multiple_whitespaces])
         extracted_tags = self.tag_extractor.extract_from_title(" ".join(raw_title), biggest_token, nouns)
