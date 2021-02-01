@@ -1,3 +1,5 @@
+import pickle
+
 class Node:
     def __init__(self, value):
         self.value = value
@@ -5,22 +7,24 @@ class Node:
         self.is_terminal = False
 
 class TagExtractor:
+    """
+    vocab에 들어있는 단어만을 추출한다.
+    """
     def __init__(self):
         self.head = Node(None)
 
     def build_by_vocab(self, words):
-        print("DB 구성중입니다 ...")
         for word in words:
             self.insert(word)
-        print("입력 완료 ...")
 
-    def build_by_w2v(self, w2v_model):
-        print("DB 구성중입니다 ...")
+    def build_by_w2v(self, w2v_model_path):
+        with open(w2v_model_path, 'rb') as f:
+            w2v_model = pickle.load(f)
+
         for word in w2v_model.wv.vocab.keys():
             if word.isdigit():
                 continue
             self.insert(word)
-        print("입력 완료 ...")
 
     def insert(self, query):
         if len(query) <= 1:
