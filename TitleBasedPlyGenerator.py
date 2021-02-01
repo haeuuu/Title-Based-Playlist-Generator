@@ -4,30 +4,30 @@ from gensim.parsing.preprocessing import preprocess_string, strip_punctuation,re
 from extract_tags import *
 from Playlist2Vec import *
 import os
+import pickle
 import pandas as pd
 import time
 
 class TitleBasedRecommender(Playlist2Vec):
-    def __init__(self, train_path, val_path, w2v_model):
+    def __init__(self, train_path, val_path, w2v_model_path, song_meta_path):
         super().__init__(train_path, val_path)
         self.title = {str(ply['id']):ply['plylst_title'] for ply in self.data}
-        self.register_w2v(w2v_model)
+        self.register_w2v(w2v_model_path)
         self.tag_extractor = TagExtractor()
-        self.tag_extractor.build_by_w2v(w2v_model)
-        self.load_song_meta()
+        self.tag_extractor.build_by_w2v(w2v_model_path)
+        self.load_song_meta(song_meta_path)
 
     def load_song_meta(self, song_meta_path):
         print("Load Song meta ...")
         self.song_meta = pd.read_pickle(song_meta_path)
 
-    def build_p2v(self, mode='consistency'):
+    def register_p2v(self, p2v_model_path):
+        with open(p2v_model_path, 'rb') as f:
+            self.p2v_model = pickle.load(f)
+
+    def build_p2v(self, mode = 'consistency', path_to_save = None):
         """
         TitleBasedRecommend.build_p2v uses only tag information.
-
-        :param normalize_tag: if True, tag embedding will be divided sum of scores.
-        :param normalize_title: if True, title embedding will be divided sum of scores.
-        :param song_weight: float
-        :param tag_weight: float
         """
 
         start = time.time()
@@ -50,7 +50,7 @@ class TitleBasedRecommender(Playlist2Vec):
                 if mode == 'consistency':
                     tags_score = [self.consistency[tag] for tag in tags]
 
-            ply_embedding += self.get_weighted_embedding(items=tags, scores=tags_score)
+            ply_embedding += self.get_weighted_embedding(items = tags, scores = tags_score)
 
             if type(ply_embedding) != int:  # 한 번이라도 update 되었다면
                 pids.append(str(pid))  # ! string !
@@ -62,8 +62,13 @@ class TitleBasedRecommender(Playlist2Vec):
         print(f'> running time : {time.time() - start:.3f}')
         print(f'> Register (ply update) : {len(pids)} / {len(self.id_to_songs)}')
         val_ids = set([str(p["id"]) for p in self.val])
-        print(
-            f'> Only {len(val_ids - set(pids))} of validation set ( total : {len(val_ids)} ) can not find similar playlist in train set.')
+        print(f'> Only {len(val_ids - set(pids))} of validation set ( total : {len(val_ids)} ) can not find similar playlist in train set.')
+
+        if path_to_save is not None:
+            file_path = os.path.join(path_to_save, f'arena_data/p2v_model_{mode}.pkl')
+            with open(file_path, 'wb') as f:
+                pickle.dump(self.p2v_model, f)
+            print(f'> Saved in : {file_path}')
 
     def extract_tags(self, sentence, verbose = True, biggest_token = True, nouns = False, vote = False):
         raw_title = preprocess_string(sentence, [remove_stopwords, stem_text, strip_punctuation, strip_multiple_whitespaces])
@@ -129,34 +134,36 @@ class TitleBasedRecommender(Playlist2Vec):
 
         if verbose:
             print()
-            print(f"🧸 {' + '.join(extracted_tags)} !! 자, 플레이 리스트 채워왔어요 !")
-            print(f"💖 #{' #'.join(tag_most_common[:15])}")
+            print(f"🧸 < {' + '.join(extracted_tags)} > 를 조합해서 플레이 리스트를 채워왔어요 ! \n")
+            print(f"💖 #{' #'.join(tag_most_common[:15])}\n")
             print(self.song_meta.loc[song_most_common[:15]])
             print()
             print('🧸 이런 플레이 리스트는 어때요 ?')
-            cid = str(ply_candidates[0][0])
-            print(f'🎵 Title : {self.title[cid]}')
-            print(f"💛 #{' #'.join(self.id_to_tags[cid])}")
-            print(self.song_meta.loc[self.id_to_songs[cid][:10]])
+            for i in range(3):
+                cid = str(ply_candidates[i][0])
+                print(f'\n🎵 Title : {self.title[cid]}')
+                print(f"\n💛 #{' #'.join(self.id_to_tags[cid])}\n")
+                print(self.song_meta.loc[self.id_to_songs[cid][:10]])
+                print()
 
         return song_most_common[:topn], tag_most_common
 
 if __name__ == '__main__':
-    import pickle
-
     dir = r'C:\Users\haeyu\PycharmProjects\KakaoArena\arena_data'
     mode = 'bm25'
 
     train_path = os.path.join(dir, 'orig', 'train.json')
     val_que_path = os.path.join(dir, 'questions', 'val_question.json')
-    song_meta_path = os.path.join(r'C:\Users\haeyu\PycharmProjects\KakaoArena\arena_data\model','song_meta_sub.pkl')
+    song_meta_path = os.path.join(dir ,'model','song_meta_sub.pkl')
+    w2v_model_path = os.path.join(dir ,'model','w2v_128.pkl') # w2v_128_titleFixed
 
-    with open(os.path.join(dir, 'model', 'w2v_128.pkl'), 'rb') as f:
-        w2v_model = pickle.load(f)
-
-    ply_generator = TitleBasedRecommender(train_path, val_que_path, w2v_model)
+    ply_generator = TitleBasedRecommender(train_path, val_que_path, w2v_model_path, song_meta_path)
     ply_generator.load_song_meta(song_meta_path)
-    ply_generator.build_p2v(mode = mode)
+    p2v_model_path = os.path.join(dir, f'arena_data/p2v_model_{mode}.pkl')
+    if p2v_model_path in os.listdir(dir):
+        ply_generator.register_p2v(p2v_model_path)
+    else:
+        ply_generator.build_p2v(mode = mode, path_to_save = dir)
 
-    rec_songs, rec_tags = ply_generator.recommend(title,topn = 30, mode = mode)
+    rec_songs, rec_tags = ply_generator.recommend('도입부 장난 아님', topn = 30, mode = mode, verbose = True)
     play_list = [title] + ply_generator.convert_to_name(rec_songs)
