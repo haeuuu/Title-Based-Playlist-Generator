@@ -1,11 +1,11 @@
 from itertools import combinations
-from collections import defaultdict
+from collections import Counter
 from gensim.parsing.preprocessing import preprocess_string, strip_punctuation,remove_stopwords, stem_text,strip_multiple_whitespaces
 from extract_tags import *
 from Playlist2Vec import *
-import re, os
+import os
 import pandas as pd
-import pickle
+import time
 
 class TitleBasedRecommender(Playlist2Vec):
     def __init__(self, train_path, val_path, w2v_model):
@@ -16,9 +16,9 @@ class TitleBasedRecommender(Playlist2Vec):
         self.tag_extractor.build_by_w2v(w2v_model)
         self.load_song_meta()
 
-    def load_song_meta(self):
+    def load_song_meta(self, song_meta_path):
         print("Load Song meta ...")
-        self.song_meta = pd.read_pickle(os.path.join(self.dir,'song_meta_sub.pkl'))
+        self.song_meta = pd.read_pickle(song_meta_path)
 
     def build_p2v(self, mode='consistency'):
         """
@@ -30,6 +30,7 @@ class TitleBasedRecommender(Playlist2Vec):
         :param tag_weight: float
         """
 
+        start = time.time()
         pids = []
         playlist_embedding = []
 
@@ -37,8 +38,6 @@ class TitleBasedRecommender(Playlist2Vec):
             self.build_bm25()
         elif mode == 'consistency':
             self.build_consistency()
-        else:
-            songs_score = None
 
         for pid in tqdm(self.corpus.keys()):
             ply_embedding = 0
@@ -100,41 +99,64 @@ class TitleBasedRecommender(Playlist2Vec):
 
         return list(set(res))
 
-    def top_items(self, query_items, verbose=True):
-        candidates = self.w2v_model.wv.most_similar(query_items, topn=1000)
-        songs = [int(item) for item, sim in candidates if item.isdigit()]
-        tags = [item for item, sim in candidates if not item.isdigit()]
-
-        if verbose:
-            print('> Recommended tags  :', tags[:10])
-            print('> Recommended songs :')
-            print(self.song_meta.loc[songs[:15]])
-
-        return songs, tags
-
     def convert_to_name(self, sid_list):
         selected = self.song_meta.loc[sid_list]
         song_name = selected['song_name']
         artist = selected['artist_name_basket'].map(lambda x: " ".join(x))
         return ( song_name + ' ' + artist ).tolist()
 
-    def title_based_recommend(self, title, topk = 20 ,verbose=True, biggest_token=True):
-        extracted_items = self.extract_tags(sentence = title, verbose = verbose, biggest_token = biggest_token)
-        rec_songs, rec_tags = self.tag_based_recommend(extracted_items, topk = topk, verbose = verbose)
-        return rec_songs, extracted_items, rec_tags
+    def recommend(self, title, topn = 30, topn_for_songs = 50, topn_for_tags = 90, verbose = True , biggest_token = True, nouns = False, mode = 'consistency'):
+        extracted_tags = self.extract_tags(sentence = title, verbose = verbose,biggest_token = biggest_token,  nouns = nouns)
+        if mode == 'consistency':
+            tags_score = [self.consistency[tag] for tag in extracted_tags]
+        else:
+            # raise NotImplementedError
+            tags_score = [1]*len(extracted_tags)
 
-    def tag_based_recommend(self, tags, topk = 20 ,verbose=True):
-        rec_songs, rec_tags = self.top_items(tags, verbose)
+        ply_embedding = self.get_weighted_embedding(extracted_tags, normalize = False, scores = tags_score)
 
-        if len(rec_songs) < topk:
-            print(f'[Warning] recommended songs : {len(rec_songs)}')
+        ply_candidates = self.p2v_model.similar_by_vector(ply_embedding, topn=max(topn_for_tags, topn_for_songs))
+        song_candidates = []
+        tag_candidates = []
 
-        return rec_songs[:topk], rec_tags[:10]
+        for cid, _ in ply_candidates[:topn_for_songs]:
+            song_candidates.extend(self.id_to_songs[str(cid)])
+        for cid, _ in ply_candidates[:topn_for_tags]:
+            tag_candidates.extend(self.id_to_tags[str(cid)])
+
+        song_most_common = [song for song, _ in Counter(song_candidates).most_common()]
+        tag_most_common = [tag for tag, _ in Counter(tag_candidates).most_common() if tag not in extracted_tags]
+
+        if verbose:
+            print()
+            print(f"🧸 {' + '.join(extracted_tags)} !! 자, 플레이 리스트 채워왔어요 !")
+            print(f"💖 #{' #'.join(tag_most_common[:15])}")
+            print(self.song_meta.loc[song_most_common[:15]])
+            print()
+            print('🧸 이런 플레이 리스트는 어때요 ?')
+            cid = str(ply_candidates[0][0])
+            print(f'🎵 Title : {self.title[cid]}')
+            print(f"💛 #{' #'.join(self.id_to_tags[cid])}")
+            print(self.song_meta.loc[self.id_to_songs[cid][:10]])
+
+        return song_most_common[:topn], tag_most_common
 
 if __name__ == '__main__':
-    dir = r'C:\Users\haeyu\PycharmProjects\KakaoArena\arena_data\model'
-    ply_generator = TitleBasedPlyGenerator(dir)
-    ply_generator.set_default()
+    import pickle
 
-    rec_songs, extracted_tags, rec_tags = ply_generator.title_based_recommend('편집샵 주인장 플레이리스트 훔쳐왔다 !!!', topk = 20)
-    print(ply_generator.convert_to_name(rec_songs[:5]))
+    dir = r'C:\Users\haeyu\PycharmProjects\KakaoArena\arena_data'
+    mode = 'bm25'
+
+    train_path = os.path.join(dir, 'orig', 'train.json')
+    val_que_path = os.path.join(dir, 'questions', 'val_question.json')
+    song_meta_path = os.path.join(r'C:\Users\haeyu\PycharmProjects\KakaoArena\arena_data\model','song_meta_sub.pkl')
+
+    with open(os.path.join(dir, 'model', 'w2v_128.pkl'), 'rb') as f:
+        w2v_model = pickle.load(f)
+
+    ply_generator = TitleBasedRecommender(train_path, val_que_path, w2v_model)
+    ply_generator.load_song_meta(song_meta_path)
+    ply_generator.build_p2v(mode = mode)
+
+    rec_songs, rec_tags = ply_generator.recommend(title,topn = 30, mode = mode)
+    play_list = [title] + ply_generator.convert_to_name(rec_songs)
