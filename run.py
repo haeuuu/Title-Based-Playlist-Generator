@@ -1,6 +1,5 @@
 import os
-from MelonPlyBuilder import MelonPlyBuilder
-from TitleBasedPlyGenerator import TitleBasedRecommender
+from Title_Based_Playlist_Generator import *
 
 """
 Examples
@@ -32,18 +31,19 @@ else:
     ply_generator.build_p2v(mode=mode, path_to_save=dir)
 
 ply_builder = MelonPlyBuilder()
+
 while True:
     title = input("\n오늘은 이런 노래가 땡긴다 ~ (~v~)/ : ")
     if title == 'quit':
         print('\n이용해주셔서 감사함니다 ~ (-v-) (_ _)')
         break
 
+    rec_songs, rec_tags = ply_generator.recommend(title, topn = 30, mode = mode)
+    play_list = [title] + ply_generator.convert_to_name(rec_songs)
+
     if not ply_builder.login_status:
         uid, password = input("Insert your Melon ID : "), input("Insert your Melon pwd : ")
         ply_builder.login(uid, password)
-
-    rec_songs, rec_tags = ply_generator.recommend(title, topn = 30, mode = mode)
-    play_list = [title] + ply_generator.convert_to_name(rec_songs)
     ply_builder.run(play_list) #TODO : init query
 
 ply_builder.logout()
