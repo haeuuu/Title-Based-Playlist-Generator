@@ -1,9 +1,13 @@
 from collections import Counter, defaultdict
 from itertools import chain
 from tqdm import tqdm
-from weighted_ratings import *
+from weighted_ratings import Ratings
+from extract_tags import TagExtractor
+import os
 import time
+import pickle
 import numpy as np
+from util import *
 
 from gensim.models import Word2Vec
 from gensim.models.keyedvectors import WordEmbeddingsKeyedVectors
@@ -49,25 +53,16 @@ class Playlist2Vec:
         print(f'> Songs + Tags = {len(self.songs)} + {len(self.tags)} = {len(self.songs) + len(self.tags)}')
         print("> Playlist Id Type :", type(list(self.id_to_songs.keys())[0]), type(list(self.id_to_tags.keys())[0]))
 
-    def register_w2v(self, w2v_model):
-        self.w2v_model = w2v_model
-
-    def train_w2v(self, min_count=3, size=128, window=250, sg=1, workers=1):
-        # workers = 1 ; for consistency
-        start = time.time()
-        self.w2v_model = Word2Vec(sentences=list(self.corpus.values()), min_count=min_count, size=size, window=window,
-                                  sg=sg, workers=workers)
-        print(f'> running time : {time.time() - start:.3f}')
-
     def build_bm25(self):
 
         print('Build bm25 ...')
         self.rating_builder = Ratings(self.data)
-        self.ratings = self.rating_builder.build_coo(w2v_model)
+        self.ratings = self.rating_builder.build_coo(self.w2v_model)
         self.ratings_weighted = 5 * self.rating_builder.bm25_weight(self.ratings).tocsr()
+        self.idf = self.rating_builder.idf_weight(self.ratings)
 
-        self.bm25 = defaultdict(lambda: {'songs': [[], []], 'tags': [[],[]]})
-        # {pid : {'songs' : [ [song1, song2, ... ], [score1, score2, ... ] ], 'tags' : [ [tag1, tag2, ...], [score1 , score2 , ...] ] } , ... }
+        self.bm25 = defaultdict(lambda: {'songs': [[], []], 'tags': [[],
+                                                                     []]})  # {pid : {'songs' : [ [song1, song2, ... ], [score1, score2, ... ] ], 'tags' : [ [tag1, tag2, ...], [score1 , score2 , ...] ] } , ... }
 
         for pid in tqdm(self.corpus.keys()):
 
@@ -85,13 +80,12 @@ class Playlist2Vec:
                     self.bm25[pid]['songs'][0].append(song)
                     self.bm25[pid]['songs'][1].append(score)
 
-    def build_consistency(self, topn = 3):
+    def build_consistency(self, topn=3):
         """
         co-occurrence를 계산하고 consistency를 얻는다!
         """
 
         print('Calculate co-occurrence ...')
-
         co_occur = defaultdict(Counter)
         for items in tqdm(self.corpus.values()):
             cnt = Counter(items)
@@ -102,23 +96,33 @@ class Playlist2Vec:
             del cnt[tag]
 
         print('Get consistency ...')
-
         self.consistency = {}
         for query in tqdm(co_occur.keys()):
             sims = []
             for tag, sim in co_occur[query].most_common(topn):
                 try:
-                    sims.append((tag,self.w2v_model.similarity(query, tag)))
+                    sims.append((tag, self.w2v_model.similarity(query, tag)))
                 except KeyError:
                     continue
 
-            sims_mean = sum([s for t,s in sims[:topn]])/topn
-            exp_mean = np.exp(sims_mean*5)
+            sims_mean = sum([s for t, s in sims[:topn]]) / topn
+            exp_mean = np.exp(sims_mean * 5)
             self.consistency[query] = exp_mean
 
         del co_occur
 
-    def get_weighted_embedding(self, items , normalize=True, scores = None):
+    def register_w2v(self, w2v_model_path):
+        with open(w2v_model_path, 'rb') as f:
+            self.w2v_model = pickle.load(f)
+
+    def train_w2v(self, min_count=3, size=128, window=250, sg=1, workers=1):
+        # workers = 1 ; for consistency
+        start = time.time()
+        self.w2v_model = Word2Vec(sentences=list(self.corpus.values()), min_count=min_count, size=size, window=window,
+                                  sg=sg, workers=workers)
+        print(f'> running time : {time.time() - start:.3f}')
+
+    def get_weighted_embedding(self, items, normalize=True, scores=None):
         """
         items의 embedding을 scores에 따라 weighted sum한 결과를 return합니다.
         :param items: list of songs/tags
@@ -142,7 +146,7 @@ class Playlist2Vec:
         return embedding
 
     def build_p2v(self, normalize_song=True, normalize_tag=True,
-                  song_weight=1, tag_weight=1,mode = 'bm25'):
+                  song_weight=1, tag_weight=1, mode='consistency'):
         """
         :param normalize_song: if True, song embedding will be divided sum of scores.
         :param normalize_tag: if True, tag embedding will be divided sum of scores.
@@ -176,8 +180,8 @@ class Playlist2Vec:
                     songs_score = [self.consistency[song] for song in songs]
                     tags_score = [self.consistency[tag] for tag in tags]
 
-            ply_embedding += song_weight * self.get_weighted_embedding(songs, normalize_song, scores = songs_score)
-            ply_embedding += tag_weight * self.get_weighted_embedding(tags, normalize_tag, scores = tags_score)
+            ply_embedding += song_weight * self.get_weighted_embedding(songs, normalize_song, scores=songs_score)
+            ply_embedding += tag_weight * self.get_weighted_embedding(tags, normalize_tag, scores=tags_score)
 
             if type(ply_embedding) != int:  # 한 번이라도 update 되었다면
                 pids.append(str(pid))  # ! string !
@@ -189,7 +193,8 @@ class Playlist2Vec:
         print(f'> running time : {time.time() - start:.3f}')
         print(f'> Register (ply update) : {len(pids)} / {len(self.id_to_songs)}')
         val_ids = set([str(p["id"]) for p in self.val])
-        print(f'> Only {len(val_ids - set(pids))} of validation set ( total : {len(val_ids)} ) can not find similar playlist in train set.')
+        print(
+            f'> Only {len(val_ids - set(pids))} of validation set ( total : {len(val_ids)} ) can not find similar playlist in train set.')
 
     def recommend(self, pid, topn_for_tag, topn_for_song):
         """
@@ -198,9 +203,12 @@ class Playlist2Vec:
         :param topn_for_song: number of simliar playlists for song recommendation
         :return: recommended songs, recommended tags
         """
+
         if self.p2v_model.vocab.get(str(pid)) is None:
             return [], []
         else:
+            ply_embedding = 0
+
             ply_candidates = self.p2v_model.most_similar(str(pid), topn=max(topn_for_tag, topn_for_song))
             song_candidates = []
             tag_candidates = []
@@ -216,19 +224,17 @@ class Playlist2Vec:
             return song_most_common, tag_most_common
 
 if __name__ == '__main__':
-    import pickle
-    import os
+    dir = r'C:\Users\haeyu\PycharmProjects\KakaoArena\arena_data'
 
-    default_dir = r'C:\Users\haeyu\PycharmProjects\KakaoArena\arena_data'
-
-    train_path = os.path.join(default_dir, r'orig/train.json')
-    val_que_path = os.path.join(default_dir, r'questions/val_questions.json')
+    train_path = os.path.join(dir, 'orig','train.json')
+    val_que_path = os.path.join(dir, 'questions','val_question.json')
+    w2v_model_path = os.path.join(dir, 'model','w2v_128.pkl')
 
     model = Playlist2Vec(train_path, val_que_path)
+    model.register_w2v(w2v_model_path)
 
-    with open(os.path.join(default_dir, 'model','w2v_128.pkl'), 'rb') as f:
-        w2v_model = pickle.load(f)
-
-    model.register_w2v(w2v_model)
-    model.build_p2v(normalize_song = True, normalize_tag = True, normalize_title = True , song_weight = 1, tag_weight = 1 ,use_bm25 = False)
-    model.build_p2v(normalize_song = False, normalize_tag = True, normalize_title = True , song_weight = 1, tag_weight = 1 ,use_bm25 = True)
+    # example
+    model.build_p2v(normalize_song = True, normalize_tag = True, song_weight = 1, tag_weight = 1, mode = None)
+    rec_songs, rec_tags = model.recommend(147332, topn_for_song = 20, topn_for_tag = 50)
+    print(rec_tags)
+    print(rec_songs[:10])
