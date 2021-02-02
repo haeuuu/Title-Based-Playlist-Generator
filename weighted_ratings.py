@@ -75,3 +75,21 @@ class Ratings:
         X.data = X.data * (K1 + 1.0) / (K1 * length_norm[X.row] + X.data) * idf[X.col]
 
         return X
+
+    def idf_weight(self, X):
+        """
+        Reference : https://github.com/benfred/implicit
+        Weights a Sparse Matrix by TF-IDF Weighted
+        """
+        X = coo_matrix(X)
+
+        # calculate IDF
+        N = float(X.shape[0])
+        idf_weight = np.log(N) - np.log1p(np.bincount(X.col))
+        idf = {}
+        for iid, idf_ in enumerate(idf_weight):
+            if iid >= self.num_song:
+                iid = self.id2tag[iid - self.num_song]
+            idf[iid] = idf_
+
+        return idf
