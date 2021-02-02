@@ -1,6 +1,5 @@
 import os
-from MelonPlyBuilder import MelonPlyBuilder
-from TitleBasedPlyGenerator import TitleBasedRecommender
+from Title_Based_Playlist_Generator import *
 
 """
 Examples
