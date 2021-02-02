@@ -3,7 +3,7 @@ from collections import Counter
 from gensim.parsing.preprocessing import preprocess_string, strip_punctuation,remove_stopwords, stem_text,strip_multiple_whitespaces
 from extract_tags import *
 from Playlist2Vec import *
-import os
+import os, re
 import pickle
 import pandas as pd
 import time
@@ -16,14 +16,22 @@ class TitleBasedRecommender(Playlist2Vec):
         self.tag_extractor = TagExtractor()
         self.tag_extractor.build_by_w2v(w2v_model_path)
         self.load_song_meta(song_meta_path)
+        self.consistency = None
 
     def load_song_meta(self, song_meta_path):
         print("Load Song meta ...")
         self.song_meta = pd.read_pickle(song_meta_path)
 
     def register_p2v(self, p2v_model_path):
+        catch_mode = re.findall('p2v_model_(\w+)', p2v_model_path)
+        if not catch_mode:
+            print('[ERROR] can not infer mode. format : p2v_model_mode.pkl')
+            return
+        mode = catch_mode[0]
+
         with open(p2v_model_path, 'rb') as f:
-            self.p2v_model = pickle.load(f)
+            self.p2v_model, weight = pickle.load(f)
+            setattr(self, mode, weight)
 
     def build_p2v(self, mode = 'consistency', path_to_save = None):
         """
@@ -59,16 +67,16 @@ class TitleBasedRecommender(Playlist2Vec):
         self.p2v_model = WordEmbeddingsKeyedVectors(self.w2v_model.vector_size)
         self.p2v_model.add(pids, playlist_embedding)
 
-        print(f'> running time : {time.time() - start:.3f}')
-        print(f'> Register (ply update) : {len(pids)} / {len(self.id_to_songs)}')
-        val_ids = set([str(p["id"]) for p in self.val])
-        print(f'> Only {len(val_ids - set(pids))} of validation set ( total : {len(val_ids)} ) can not find similar playlist in train set.')
+        if mode == 'bm25':
+            self.bm25 = self.idf
 
         if path_to_save is not None:
-            file_path = os.path.join(path_to_save, f'arena_data/p2v_model_{mode}.pkl')
-            with open(file_path, 'wb') as f:
-                pickle.dump(self.p2v_model, f)
-            print(f'> Saved in : {file_path}')
+
+            model_path = f'{path_to_save}/p2v_model_{mode}.pkl'
+            with open(model_path, 'wb') as f:
+                pickle.dump((self.p2v_model, getattr(self, mode)), f)
+
+            print(f'> Saved in : {model_path}')
 
     def extract_tags(self, sentence, verbose = True, biggest_token = True, nouns = False, vote = False):
         raw_title = preprocess_string(sentence, [remove_stopwords, stem_text, strip_punctuation, strip_multiple_whitespaces])
@@ -112,8 +120,8 @@ class TitleBasedRecommender(Playlist2Vec):
 
     def recommend(self, title, topn = 30, topn_for_songs = 50, topn_for_tags = 90, verbose = True , biggest_token = True, nouns = False, mode = 'consistency'):
         extracted_tags = self.extract_tags(sentence = title, verbose = verbose,biggest_token = biggest_token,  nouns = nouns)
-        if mode == 'consistency':
-            tags_score = [self.consistency[tag] for tag in extracted_tags]
+        if mode == 'consistency' or mode == 'bm25':
+            tags_score = [getattr(self, mode)[tag] for tag in extracted_tags]
         else:
             # raise NotImplementedError
             tags_score = [1]*len(extracted_tags)
@@ -153,17 +161,16 @@ if __name__ == '__main__':
     mode = 'bm25'
 
     train_path = os.path.join(dir, 'orig', 'train.json')
-    val_que_path = os.path.join(dir, 'questions', 'val_question.json')
+    val_path = os.path.join(dir, 'orig', 'val.json') # os.path.join(dir, 'questions', 'val_question.json')
     song_meta_path = os.path.join(dir ,'model','song_meta_sub.pkl')
-    w2v_model_path = os.path.join(dir ,'model','w2v_128.pkl') # w2v_128_titleFixed
+    w2v_model_path = os.path.join(dir ,'model','w2v_128.pkl')
 
     ply_generator = TitleBasedRecommender(train_path, val_que_path, w2v_model_path, song_meta_path)
-    ply_generator.load_song_meta(song_meta_path)
-    p2v_model_path = os.path.join(dir, f'arena_data/p2v_model_{mode}.pkl')
-    if p2v_model_path in os.listdir(dir):
+
+    p2v_model_path = os.path.join(dir, 'model',f'p2v_model_{mode}.pkl')
+    if f'p2v_model_{mode}.pkl' in os.listdir(os.path.join(dir,'model')):
         ply_generator.register_p2v(p2v_model_path)
     else:
         ply_generator.build_p2v(mode = mode, path_to_save = dir)
 
     rec_songs, rec_tags = ply_generator.recommend('도입부 장난 아님', topn = 30, mode = mode, verbose = True)
-    play_list = [title] + ply_generator.convert_to_name(rec_songs)
