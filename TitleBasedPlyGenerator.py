@@ -165,7 +165,7 @@ if __name__ == '__main__':
     song_meta_path = os.path.join(dir ,'model','song_meta_sub.pkl')
     w2v_model_path = os.path.join(dir ,'model','w2v_128.pkl')
 
-    ply_generator = TitleBasedRecommender(train_path, val_que_path, w2v_model_path, song_meta_path)
+    ply_generator = TitleBasedRecommender(train_path, val_path, w2v_model_path, song_meta_path)
 
     p2v_model_path = os.path.join(dir, 'model',f'p2v_model_{mode}.pkl')
     if f'p2v_model_{mode}.pkl' in os.listdir(os.path.join(dir,'model')):
