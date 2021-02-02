@@ -24,7 +24,7 @@
 
 `run.py`를 실행시키면, 추천에 필요한 데이터를 로드하고 사용자에게 플레이리스트 제목을 요청합니다.
 
-![image-20201218173206956](fig/image-20201218173206956.png)
+![image-20210131061933049](../../../Documents/Typora%20%EB%AC%B8%EC%84%9C/fig/image-20210131061933049.png)
 
   
 
@@ -32,15 +32,27 @@
 
 ### 2. 제목을 기반으로 적절한 태그를 추출한 후 플레이 리스트를 생성합니다.
 
-제목에 어울리는 태그를 `Recommended tags`로 제공하고, 이를 기반으로 추천할 노래 리스트의 일부를 띄웁니다.
+제목에 어울리는 태그를 제공하고, 이를 기반으로 추천할 노래 리스트의 일부를 띄웁니다.
 
-플레이 리스트는 기본 50곡이 추천되며 `ply_generator.title_based_recommend` 의 `topn` 변수를 통해 조절가능합니다.
+![image-20210131061742552](../../../Documents/Typora%20%EB%AC%B8%EC%84%9C/fig/image-20210131061742552.png)
 
-![image-20201218173255097](fig/image-20201218173255097.png)
 
-  
 
-![image-20201218180229792](fig/image-20201218180229792.png)
+![image-20201218173255097](../../../Documents/Typora%20%EB%AC%B8%EC%84%9C/fig/image-20201218173255097.png)
+
+
+
+![image-20201218180229792](../../../Documents/Typora%20%EB%AC%B8%EC%84%9C/fig/image-20201218180229792.png)
+
+
+
+멜론 유저가 생성한 플레이 리스트 중에서 **사용자가 관심있어할만한 플레이 리스트**도 제공합니다.
+
+![image-20210131061720817](../../../Documents/Typora%20%EB%AC%B8%EC%84%9C/fig/image-20210131061720817.png)
+
+
+
+ 
 
 
 
@@ -119,7 +131,7 @@ noise로 판단한 `듣고싶은노래`가 threshold에 의해 제거됩니다.
 
 ### 4. 생성한 플레이 리스트를 사용자의 멜론 계정에 추가하기
 자세한 구현 과정은 [Melon-playlist-generater Repo](https://github.com/haeuuu/Melon-playlist-generater)에서 확인할 수 있습니다.
-  
+
 
 ## 보완할 부분
 
