@@ -1,13 +1,15 @@
-from collections import Counter, defaultdict
-from itertools import chain
-from tqdm import tqdm
-from weighted_ratings import Ratings
-from extract_tags import TagExtractor
 import os
 import time
 import pickle
 import numpy as np
-from util import *
+
+from collections import Counter, defaultdict
+from itertools import chain
+from tqdm import tqdm
+
+from .weighted_ratings import Ratings
+from .extract_tags import TagExtractor
+from .util import load_json
 
 from gensim.models import Word2Vec
 from gensim.models.keyedvectors import WordEmbeddingsKeyedVectors

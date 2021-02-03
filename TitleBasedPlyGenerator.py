@@ -1,14 +1,16 @@
 import os, re
 import pickle
-import pandas as pd
 import time
+import pandas as pd
 from tqdm import tqdm
 
-from gensim.parsing.preprocessing import preprocess_string, strip_punctuation,remove_stopwords, stem_text,strip_multiple_whitespaces
-from extract_tags import TagExtractor
-from Playlist2Vec import Playlist2Vec
 from collections import Counter
 from itertools import combinations, chain
+
+from .extract_tags import TagExtractor
+from .Playlist2Vec import Playlist2Vec
+
+from gensim.parsing.preprocessing import preprocess_string, strip_punctuation,remove_stopwords, stem_text,strip_multiple_whitespaces
 
 class TitleBasedRecommender(Playlist2Vec):
     def __init__(self, train_path, val_path, w2v_model_path, song_meta_path):
@@ -132,6 +134,7 @@ class TitleBasedRecommender(Playlist2Vec):
 
     def recommend(self, title, topn = 30, topn_for_songs = 50, topn_for_tags = 90, verbose = True , biggest_token = True, nouns = False, mode = 'consistency'):
         extracted_tags = self.extract_tags(sentence = title, verbose = verbose,biggest_token = biggest_token,  nouns = nouns)
+        # TODO : 추출된 태그가 없을 때 예외 처리
         if mode == 'consistency' or mode == 'bm25':
             tags_score = [getattr(self, mode)[tag] for tag in extracted_tags]
         else:
