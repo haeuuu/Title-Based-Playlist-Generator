@@ -75,21 +75,3 @@ class TagExtractor:
                 end += 1
 
         return extracted_tags
-
-    def extract_from_title(self, title, biggest_token=True, nouns=False):
-        tags = []
-        if nouns:
-            return self.extract_nouns(title)
-        else:
-            for word in title.split():
-                tags.extend(self.extract(word, biggest_token))
-            return tags
-
-    def extract_nouns(self, title):
-        nouns = hannanum.nouns(" ".join(self.resub(title)))
-        tags = []
-        for noun in nouns:
-            if self.search(noun):
-                tags.append(noun)
-
-        return tags
