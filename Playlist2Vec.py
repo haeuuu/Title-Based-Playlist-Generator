@@ -42,7 +42,7 @@ class Playlist2Vec:
             self.id_to_songs[pid] = [*map(str, ply['songs'])]  # list
             self.id_to_tags[pid] = [*map(str, ply['tags'])]  # list
             raw_title = preprocess_string(ply['plylst_title'], preproccess)
-            filtered_title = filter.extract_from_title(" ".join(raw_title))
+            filtered_title = filter.extract(" ".join(raw_title))
             self.id_to_title[pid] = raw_title + filtered_title
             ply['tags'].extend(self.id_to_title[pid])
 
