@@ -1,3 +1,5 @@
+# TODO : build_vocab - title preprocessing, list(set(tag + title))
+
 import os, re
 import pickle
 import time
@@ -95,7 +97,7 @@ class TitleBasedRecommender(Playlist2Vec):
 
     def extract_tags(self, sentence, verbose = True, biggest_token = True, nouns = False, vote = False):
         raw_title = preprocess_string(sentence, [remove_stopwords, stem_text, strip_punctuation, strip_multiple_whitespaces])
-        extracted_tags = self.tag_extractor.extract_from_title(" ".join(raw_title), biggest_token, nouns)
+        extracted_tags = self.tag_extractor.extract(" ".join(raw_title), biggest_token, nouns)
         if vote:
             extracted_tags = self.vote(extracted_tags, verbose)
         return extracted_tags
