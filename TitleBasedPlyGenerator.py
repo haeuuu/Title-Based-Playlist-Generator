@@ -95,9 +95,9 @@ class TitleBasedRecommender(Playlist2Vec):
 
             print(f'> Saved in : {model_path}')
 
-    def extract_tags(self, sentence, verbose = True, biggest_token = True, nouns = False, vote = False):
+    def extract_tags(self, sentence, verbose = True, biggest_token = True, vote = False):
         raw_title = preprocess_string(sentence, [remove_stopwords, stem_text, strip_punctuation, strip_multiple_whitespaces])
-        extracted_tags = self.tag_extractor.extract(" ".join(raw_title), biggest_token, nouns)
+        extracted_tags = self.tag_extractor.extract(" ".join(raw_title), biggest_token)
         if vote:
             extracted_tags = self.vote(extracted_tags, verbose)
         return extracted_tags
@@ -135,8 +135,8 @@ class TitleBasedRecommender(Playlist2Vec):
         artist = selected['artist_name_basket'].map(lambda x: " ".join(x))
         return ( song_name + ' ' + artist ).tolist()
 
-    def recommend(self, title, topn = 30, topn_for_songs = 50, topn_for_tags = 90, verbose = True , biggest_token = True, nouns = False, mode = 'consistency'):
-        extracted_tags = self.extract_tags(sentence = title, verbose = verbose,biggest_token = biggest_token,  nouns = nouns)
+    def recommend(self, title, topn = 30, topn_for_songs = 50, topn_for_tags = 90, verbose = True , biggest_token = True, mode = 'consistency'):
+        extracted_tags = self.extract_tags(sentence = title, verbose = verbose,biggest_token = biggest_token)
         # TODO : 추출된 태그가 없을 때 예외 처리
         if mode == 'consistency' or mode == 'bm25':
             tags_score = [getattr(self, mode)[tag] for tag in extracted_tags]
