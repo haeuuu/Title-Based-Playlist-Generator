@@ -22,37 +22,54 @@ class TagExtractor:
             w2v_model = pickle.load(f)
 
         for word in w2v_model.wv.vocab.keys():
-            if word.isdigit():
-                continue
             self.insert(word)
 
+    def not_satisfied(self, query, limit = 1):
+        """
+        숫자 또는 알파벳 한글자(의미가 부족한 태그라고 판단)는 False를 return합니다.
+        limit이 1 이하인 경우에는 한글의 경우 True를 return합니다. (봄, 팝 등의 태그를 위해)
+        limit이 2 이상인 경우에는 길이만을 고려합니다.
+        """
+        if query.isdigit():
+            return True
+        if limit <= 1:
+            return len(query) <= limit and query.encode().isalpha()
+        return len(query) < limit
+
     def insert(self, query):
-        if len(query) <= 1:
+        if self.not_satisfied(query):
             return
 
         curr_node = self.head
 
-        for q in query:
+        for q in query.lower():
             if curr_node.children.get(q) is None:
                 curr_node.children[q] = Node(q)
             curr_node = curr_node.children[q]
         curr_node.is_terminal = query
 
-    def search(self, query):
+    def search(self, query, return_value = False):
         curr_node = self.head
 
-        for q in query:
+        for q in query.lower():
             curr_node = curr_node.children.get(q)
             if curr_node is None:
                 return False
 
         if curr_node.is_terminal:
+            if return_value:
+                return curr_node.is_terminal
             return True
         return False
 
     def extract(self, query, biggest_token=True):
+        """
+        vocab : 잔잔한, 감성
+        input : 잔잔한감성 입니당
+        return : [ 잔잔한 , 감성 ]
+        """
         start, end = 0, 0
-        query += '*'
+        query = query.lower() + '*'
         curr_node = self.head
         prev_node = self.head
 
