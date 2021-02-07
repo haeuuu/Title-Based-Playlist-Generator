@@ -92,3 +92,23 @@ class TagExtractor:
                 end += 1
 
         return extracted_tags
+
+    def convert(self, query, merged = False):
+        """
+        vocab : 잔잔한, 감성
+        input : 잔잔한감성 입니당
+        extracted : [ 잔잔한 , 감성 ] ( if merged == True, '잔잔한감성' 자체가 vocab에 없으므로 추가. )
+        return : [ 잔잔한 , 감성 , 입니당 ] ( if merged == True, [ 잔잔한, 감성, 잔잔한감성, 입니당 ] )
+        """
+        res = []
+        for q in query.split():
+            extracted = self.extract(q)
+            if extracted:
+                res.extend(extracted)
+                if merged and not self.search(q):
+                        res.append(q.lower())
+            else:
+                if not self.not_satisfied(q):
+                    res.append(q)
+
+        return res
