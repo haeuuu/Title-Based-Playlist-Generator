@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import pickle
 import numpy as np
@@ -13,7 +14,6 @@ from .util import load_json
 
 from gensim.models import Word2Vec
 from gensim.models.keyedvectors import WordEmbeddingsKeyedVectors
-from gensim.parsing.preprocessing import preprocess_string, strip_punctuation,remove_stopwords, stem_text,strip_multiple_whitespaces
 
 class Playlist2Vec:
     def __init__(self, train_path, val_path):
@@ -33,18 +33,18 @@ class Playlist2Vec:
         self.id_to_title = {}
         self.corpus = {}
 
-        filter = TagExtractor()
-        filter.build_by_vocab(set(chain.from_iterable([ply['tags'] for ply in self.data])))
-        preproccess = [remove_stopwords, stem_text, strip_punctuation, strip_multiple_whitespaces]
+        self.filter = TagExtractor()
+        self.filter.build_by_vocab(set(chain.from_iterable([ply['tags'] for ply in self.data])))
 
         for ply in tqdm(self.data):
             pid = str(ply['id'])
             self.id_to_songs[pid] = [*map(str, ply['songs'])]  # list
             self.id_to_tags[pid] = [*map(str, ply['tags'])]  # list
-            raw_title = preprocess_string(ply['plylst_title'], preproccess)
-            filtered_title = filter.extract(" ".join(raw_title))
-            self.id_to_title[pid] = raw_title + filtered_title
-            ply['tags'].extend(self.id_to_title[pid])
+
+            raw_title = re.findall('[0-9a-zA-Z가-힣]+' ,ply['plylst_title'])
+            extracted_tags = self.filter.convert(" ".join(raw_title))
+            self.id_to_title[pid] = extracted_tags
+            ply['tags'] = set(self.id_to_title[pid] + ply['tags'])
 
             self.corpus[pid] = self.id_to_songs[pid] + self.id_to_tags[pid] + self.id_to_title[pid]
 
