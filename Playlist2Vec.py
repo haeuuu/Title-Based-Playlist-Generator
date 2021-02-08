@@ -16,7 +16,7 @@ from gensim.models import Word2Vec
 from gensim.models.keyedvectors import WordEmbeddingsKeyedVectors
 
 class Playlist2Vec:
-    def __init__(self, train_path, val_path):
+    def __init__(self, train_path, val_path, limit = 2):
         """
         Word2Vec Based Song/Tag Recommender
         """
@@ -25,15 +25,15 @@ class Playlist2Vec:
         self.data = load_json(train_path) + load_json(val_path)
 
         print('Build Vocab ...')
-        self.build_vocab()
+        self.build_vocab(limit)
 
-    def build_vocab(self):
+    def build_vocab(self, limit):
         self.id_to_songs = {}
         self.id_to_tags = {}
         self.id_to_title = {}
         self.corpus = {}
 
-        self.filter = TagExtractor()
+        self.filter = TagExtractor(limit)
         self.filter.build_by_vocab(set(chain.from_iterable([ply['tags'] for ply in self.data])))
 
         for ply in tqdm(self.data):
