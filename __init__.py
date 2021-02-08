@@ -5,4 +5,4 @@ from .melon_ply_builder import MelonPlyBuilder
 from .Playlist2Vec import Playlist2Vec
 from .TitleBasedPlyGenerator import TitleBasedRecommender
 
-__all__ = ['TitleBasedRecommender','MelonPlyBuilder','Playlist2Vec']
+__all__ = ['TitleBasedRecommender','MelonPlyBuilder','Playlist2Vec','TagExtractor']
