@@ -1,5 +1,3 @@
-# TODO : build_vocab - title preprocessing, list(set(tag + title))
-
 import os, re
 import pickle
 import time
@@ -7,42 +5,27 @@ import pandas as pd
 from tqdm import tqdm
 
 from collections import Counter
-from itertools import combinations, chain
+from itertools import combinations
 
 from .extract_tags import TagExtractor
 from .Playlist2Vec import Playlist2Vec
 
 from gensim.models.keyedvectors import WordEmbeddingsKeyedVectors
-from gensim.parsing.preprocessing import preprocess_string, strip_punctuation,remove_stopwords, stem_text,strip_multiple_whitespaces
 
 class TitleBasedRecommender(Playlist2Vec):
-    def __init__(self, train_path, val_path, w2v_model_path, song_meta_path):
-        super().__init__(train_path, val_path)
+    def __init__(self, train_path, val_path, w2v_model_path, song_meta_path, limit = 2):
+        super().__init__(train_path, val_path, limit)
+        self.title = {str(ply['id']):ply['plylst_title'] for ply in self.data}
         self.register_w2v(w2v_model_path)
-        self.tag_extractor = TagExtractor()
+        self.tag_extractor = TagExtractor(limit = limit)
         self.tag_extractor.build_by_w2v(w2v_model_path)
         self.song_meta = pd.read_pickle(song_meta_path)
         self.consistency = None
 
-    def build_vocab(self):
-        self.id_to_songs = {}
-        self.id_to_tags = {}
-        self.id_to_title = {}
-        self.corpus = {}
-
-        for ply in tqdm(self.data):
-            pid = str(ply['id'])
-            self.id_to_songs[pid] = [*map(str, ply['songs'])]  # list
-            self.id_to_tags[pid] = [*map(str, ply['tags'])]  # list
-            self.id_to_title[pid] = ply['plylst_title']
-
-        print('> # of Songs :', len(set(chain.from_iterable(songs for songs in self.id_to_songs.values()))))
-        print('> # of Tags :', len(set(chain.from_iterable(tags for tags in self.id_to_tags.values()))))
-
     def register_p2v(self, p2v_model_path):
         catch_mode = re.findall('p2v_model_(\w+)', p2v_model_path)
         if not catch_mode:
-            print('[ERROR] can not infer mode. available format : p2v_model_mode.pkl')
+            print('[ERROR] can not infer mode. format : p2v_model_mode.pkl')
             return
         mode = catch_mode[0]
 
@@ -128,17 +111,15 @@ class TitleBasedRecommender(Playlist2Vec):
         artist = selected['artist_name_basket'].map(lambda x: " ".join(x))
         return ( song_name + ' ' + artist ).tolist()
 
-    def recommend(self, title, topn=30, topn_for_songs=50, topn_for_tags=90
-                  , verbose=True, biggest_token=True, mode='consistency'):
-        extracted_tags = self.tag_extractor.extract(query=title, biggest_token=biggest_token)
-        # TODO : 추출된 태그가 없을 때 예외 처리
+    def recommend(self, title, topn = 30, topn_for_songs = 50, topn_for_tags = 90, verbose = True , biggest_token = True, mode = 'consistency'):
+        extracted_tags = self.tag_extractor.extract(query = title, biggest_token = biggest_token)
         if mode == 'consistency' or mode == 'bm25':
             tags_score = [getattr(self, mode)[tag] for tag in extracted_tags]
         else:
             # raise NotImplementedError
-            tags_score = [1] * len(extracted_tags)
+            tags_score = [1]*len(extracted_tags)
 
-        ply_embedding = self.get_weighted_embedding(extracted_tags, normalize=False, scores=tags_score)
+        ply_embedding = self.get_weighted_embedding(extracted_tags, normalize = False, scores = tags_score)
 
         ply_candidates = self.p2v_model.similar_by_vector(ply_embedding, topn=max(topn_for_tags, topn_for_songs))
         song_candidates = []
@@ -149,13 +130,13 @@ class TitleBasedRecommender(Playlist2Vec):
         for cid, _ in ply_candidates[:topn_for_tags]:
             tag_candidates.extend(self.id_to_tags[str(cid)])
 
-        song_most_common = [song for song, _ in Counter(song_candidates).most_common()]
-        tag_most_common = [tag for tag, _ in Counter(tag_candidates).most_common() if tag not in extracted_tags]
+        song_most_common = [song for song, _ in Counter(song_candidates).most_common(topn)]
+        tag_most_common = [tag for tag, _ in Counter(tag_candidates).most_common(15) if tag not in extracted_tags]
 
         if verbose:
             print()
             print(f"🧸 < {' + '.join(extracted_tags)} > 를 조합해서 플레이 리스트를 채워왔어요 ! \n")
-            print(f"💖 #{' #'.join(tag_most_common[:15])}\n")
+            print(f"💖 #{' #'.join(tag_most_common[:10])}\n")
             print(self.song_meta.loc[song_most_common[:15]])
             print()
             print('🧸 이런 플레이 리스트는 어때요 ?')
@@ -166,7 +147,7 @@ class TitleBasedRecommender(Playlist2Vec):
                 print(self.song_meta.loc[self.id_to_songs[cid][:10]])
                 print()
 
-        return song_most_common[:topn], tag_most_common
+        return song_most_common, tag_most_common
 
 if __name__ == '__main__':
     dir = r'C:\Users\haeyu\PycharmProjects\KakaoArena\arena_data'
