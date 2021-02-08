@@ -14,7 +14,7 @@
 
 #### **1 ) 만들고 싶은 플레이 리스트의 제목을 입력합니다.**
 
-![제목.png](../../../Documents/Typora%20%EB%AC%B8%EC%84%9C/fig/%EC%A0%9C%EB%AA%A9%EC%9E%85%EB%A0%A5-1612770507457.png)
+![제목.png](fig/제목입력.png)
 
   
 
@@ -26,7 +26,7 @@
 - 추출된 단어의 embedding을 weighted sum 하여 title embedding을 생성합니다.
 - 생성된 embedding과 가장 유사한 제목을 가진 플레이 리스트 50개를 찾아 노래를 추천합니다.
 
-![출력.png](../../../Documents/Typora%20%EB%AC%B8%EC%84%9C/fig/ply%EC%B6%9C%EB%A0%A5.png)
+![출력.png](fig/ply%EC%B6%9C%EB%A0%A5.png)
 
   
 
@@ -34,7 +34,7 @@
 
 #### **3 ) 멜론에 이미 존재하는 플레이 리스트 중에서 사용자의 요청과 유사한 플레이 리스트 3개를 추천합니다.**
 
-![제목.png](../../../Documents/Typora%20%EB%AC%B8%EC%84%9C/fig/%EC%9C%A0%EC%82%ACply%EC%B6%94%EC%B2%9C.png)
+![제목.png](fig/%EC%9C%A0%EC%82%ACply%EC%B6%94%EC%B2%9C.png)
 
   
 
@@ -42,7 +42,7 @@
 
 #### 4 **) 멜론 아이디와 비밀번호를 입력하면, Selenium으로 구현된 코드가 멜론에 노래를 자동으로 등록합니다.**
 
-![제목.png](../../../Documents/Typora%20%EB%AC%B8%EC%84%9C/fig/melon_login.png)
+![제목.png](fig/melon_login.png)
 
   
 
@@ -50,7 +50,7 @@
 
 #### **5 ) 웹에서 생성된 플레이 리스트는 어플에 실시간으로 반영됩니다. 멜론 어플을 열고 생성된 플레이 리스트를 즐기세요 !** 🥰
 
-![제목.png](../../../Documents/Typora%20%EB%AC%B8%EC%84%9C/fig/%EC%96%B4%ED%94%8C%ED%99%94%EB%A9%B4.png)
+![제목.png](fig/%EC%96%B4%ED%94%8C%ED%99%94%EB%A9%B4.png)
 
   
 
