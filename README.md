@@ -65,3 +65,6 @@
 - Pytorch
 
  
+ ### 🤔 개발 기록
+ 개발하면서 겪었던 문제와 고민에 대해 기술합니다.  
+ [제목에서 태그를 추출하는 방법](https://github.com/haeuuu/Title-Based-Playlist-Generator/blob/master/How%20to%20extract%20tag%20from%20title.md)
