@@ -67,4 +67,5 @@
  
  ### 🤔 개발 기록
  개발하면서 겪었던 문제와 고민에 대해 기술합니다.  
- [제목에서 태그를 추출하는 방법](https://github.com/haeuuu/Title-Based-Playlist-Generator/blob/master/How%20to%20extract%20tag%20from%20title.md)
+ 1. [제목에서 태그를 추출하는 방법](https://github.com/haeuuu/Title-Based-Playlist-Generator/blob/master/How%20to%20extract%20tag%20from%20title.md)
+ 2. [사용자의 의도에 부합하는 태그를 더 무겁게 고려하는 방법](https://github.com/haeuuu/Title-Based-Playlist-Generator/blob/master/%EC%82%AC%EC%9A%A9%EC%9E%90%EC%9D%98%20%EC%9D%98%EB%8F%84%20%EC%B0%BE%EA%B8%B0.md)
