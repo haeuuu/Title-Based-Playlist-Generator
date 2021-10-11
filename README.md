@@ -10,8 +10,11 @@
 
 
 ##  USAGE
-#### **0 ) `run.py`를 실행합니다.**
+#### **0 ) repository clone 후 `run.py`를 실행합니다.**
 ```
+git clone https://github.com/haeuuu/Title-Based-Playlist-Generator
+cd Title-Based-Playlist-Generator
+git clone https://github.com/haeuuu/Melon-playlist-auto-generator.git Melon_playlist_auto_generator
 python run.py --topn30
 ```  
 
