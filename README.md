@@ -67,6 +67,17 @@ python run.py --topn30
 
   
 
+#### **examples**
+![하이틴.png](fig/하이틴.png)
+![내적댄스.png](fig/내적댄스.png)
+![출근길.png](fig/출근길.png)
+![와인.png](fig/와인.png)
+![아이유.png](fig/아이유.png)
+
+
+
+
+
 ### 🔑 사용 기술 관련 키워드
 
 - word2vec
